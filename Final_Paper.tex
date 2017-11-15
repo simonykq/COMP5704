@@ -157,15 +157,21 @@ Unlike the classical LOF algorithm, the proposed LOF\_GPU method proposed here i
 
 The main idea of LOF algorithm is to assign each data point a degree(score) of being outlier. And this degree(score) is called \textit{Local Outlier Factor(LOF)} of this data point. This metrics measure the density of a data point compared with its neighbourhood(K-nearest neighbor). The computing of LOFs for all data points typically comprise of following steps\cite{Breunig:2000:LID:342009.335388}:
 
-\begin{enumerate}
+\begin{enumerate} \label{lof_algorithm}
 	\item For each data point p, compute its \textbf{k-distance(p)} as distance to its k-th nearest neighbor of p
 	\item For each data point p, find its \textbf{k-distance-neighbourhood} of p, which contains every object $o$ whose distance to p, noted as $d(o, p)$ is not greater than \textbf{k-distance(p)}
 	\item For each data point q in the \textbf{k-distance-neighbourhood} of p, calculate its reachability distance with respect to data record p as follows:
-		\[ \textbf{reach-distk(p,q)} = max(d(p,q), k-distance(q)) \]
+		\begin{equation} \label{rdist}
+			\textbf{reach-distk(p,q)} = max(d(p,q), k-distance(q))
+		\end{equation}
 	\item For each data point p, calculate its \textbf{local reachability density(lrd)} of q as inverse of the average reachability distance over k-nearest neighbor of p:
-		\[ \textbf{lrd(p)} =  \frac{1}{\sum\limits_{k \in knn(p)} reach-distk(p,q) / k} \]
+		\begin{equation} \label{lrd}
+			\textbf{lrd(p)} =  \frac{1}{\sum\limits_{k \in knn(p)} reach-distk(p,q) / k}
+		\end{equation}
 	\item And finally, for each data point p, calcuate its \textbf{LOF} as ratio of average \textbf{lrd} over k-nearest neighbor of p and \textbf{lrd} of p it self
-		\[  \textbf{LOF(p)} = \frac{\frac{1}{k} \sum_{k \in knn(p)} lrd(p)}{lrd(p)} \]
+		\begin{equation} \label{lof}
+			\textbf{LOF(p)} = \frac{\frac{1}{k} \sum_{k \in knn(p)} lrd(p)}{lrd(p)}
+		\end{equation}
 \end{enumerate}
 
 The outlierness is detected once the LOF of point p is greater than a pre-defined threshold $\theta$. To avoid generating a large amount of false positives, we dynamic update the value of $\theta$ based on the average of LOF over all observed data since outliers are minorities and rarely seen.
@@ -175,26 +181,132 @@ The outlierness is detected once the LOF of point p is greater than a pre-define
 To extend the LOF algorithm in context of data stream, I borrowed the idea of \textit{sliding window} from DODDS(distance-based outlier detection in data stream) and maintain chunks of data points in memory. But different from DODDS which take no consideration of historical data, I apply the LOF algorithm over data points in current window plus the virtual data points from the binned statistical summary(explained shortly). This will give a more accurate estimate of outliers since some synopsis of previous data is maintained.
 
 % ----------------------------------------------------------------------------
-\subsection{Binned Statistical Summary} \label{subsect2}
+\subsection{Maintaining Binned Statistical Summary} \label{subsect2}
 % ----------------------------------------------------------------------------
 
-Assume there are $N$ data point and each consists of d dimensions. The $N \times d$ data space is partitioned into $k^d$ bins by dividing each dimension d into k slots of user-specified width $\delta$. To find the corresponding bin for each data point $X$. Firstly, convert the input values of each dimension of $X$ into  interval [0, 1] using a sigmoid function:
+Since it is not possible to store all data in the streaming environment, a binned statistical summary is maintained in order to mine the previous observed data.
 
-\[ X = \frac{1}{1 + exp(-X)} \]
+Assume there are $N$ data point and each consists of d dimensions. For each dimension, we calculate the upper bound and lower bound in order to derive the length of that dimension. And for each of the dimension length, we divide it by a pre-defined value k to get its width, $\Delta$.  Therfore:
 
-Then, encode the data point $X_i$ as:
+\[ \Delta = \sum_{j=0}^{d} [max(x_j) - min(x_j)] / k \]
+
+To find the corresponding bin index for each data point $x_i$. Firstly, convert the input values in each dimension of $x_{ij}$ into interval [0, 1] using the following function:
+
+\[ x_{ij} = \frac{x_{ij} - min(x_j)}{max(x_j) - min(x_j)} \]
+
+Then, encode the data point $x_i$ as:
 
 \[ <I_{i1}, I_{i2}, I_{i3}, ......, I_{id}> \]
 
-where $I_{ij} = x_{ij} / \delta$. And after that, use the following formula to find the corresponding bin index for data point $X_i$
+where $I_{ij} = x_{ij} / \Delta$. And after that, use the following formula to find the corresponding bin index for data point $X_i$
 
-\[ B_{X_{i}} = (I_{id} - 1)k^{d-1} + (I_{i(d-1)})k^{d-2} + ... + (I_{i2} -1)k + I_{i1} \]
+\[ B_{X_{i}} = (I_{id} - 1)k^{d-1} + (I_{i(d-1)} - 1)k^{d-2} + ... + (I_{i2} -1)k + I_{i1} \]
 
-For each bin, we maintain the count number of all data points that fall into this bin($C_j$) and the mean value vector($M_j$) that correspond to the mean value of this bin across all dimensions d. These bins can serve as \textit{virtual points} that are used when deciding the LOF for future window of data points.
+For each bin, we maintain the count number of all data points that fall into this bin($C_j$) and the mean value vector($M_j$) that correspond to the mean value of this bin across all dimensions d. In addition, the upper bound and lower bound values need to be maintained in order to derive the width of all data in each dimension. These bins can serve as \textit{virtual points} that are used when deciding the LOF for future window of data points.
 
-Note that virtual points from binned summary are only presented to help calculating LOF values for future data. Hence, they do not need to calculate LOF values of their own, nor their k-distance-neighbourhood. But they do need to calculate their k-distances and lrd values since these are the required information in order to calculate the LOF values of their neighbourhood, which can be a real data point rather than virtual ones. The mean vector $M_j$ can serve as feature vector $X_j$ for virtual point from bin $B_j$ and therfore, its k-distance as well as its distance to any data point can be calculated. The bin count $C_j$ value can be used to simulate the lrd value of the virtual point from bin $B_j$. Since the local reachability density(lrd) measure the crowding of point p within its k-distanced objects, the higher the lrd is, the more crowed it is within the region of p. This imply that the higher the data points fall within that region of p, the higher the lrd value should be. Therefore, the lrd value of virtual point from $B_j$ can be given as:
+% ----------------------------------------------------------------------------
+\subsection{Cumulative Local Outlier Factor} \label{subsect3}
+% ----------------------------------------------------------------------------
 
-\[ lrd(B_j) = \alpha log C_j \]
+When the binned statistical summary is calculated, they can be used together with the data points in the next window to decide the outliers in that window. The algorithm to calculate the Local Outlier Factor for new data points based on binned summary is as follows:
+
+\begin{algorithm} 
+	\label{LOF_GPU} \textbf{Definition:}
+       	\step{(1)}{Combine the data points $X$ with the virtual points in binned summary $B$, noted as $X + B$}
+	\step{(2)}{Calculate the k-distance for each pair of data in data points $X + B$}
+	\step{(3)}{Calculate the k nearest neighbourhood, but this time only for data $X$ within all data points $X + B$}
+	\step{(4)}{Calculate the lrd values for each data in $X$, with the k-distance information obtained in step 2}
+	\step{(5)}{Assign each virtual data from binned summary $B$ a syntactic lrd value, based on count of data points that fall into this bin previously}
+	\step{(6)}{Using the information obtained in step 4 and step 5, calculate the LOF value for each data in $X$}
+	\step{(7)}{Calculate the bin information in $X$ and update the bin(explained in the next section)}
+\end{algorithm}
+
+Note that virtual points from binned summary are only presented to help calculating LOF values for future data. Hence, they do not need to calculate LOF values of their own, nor their k-distance-neighbourhood. But they do need to calculate their k-distances and lrd values since these are the required information in order to calculate the LOF values of their neighbourhood, which can be a real data point rather than virtual ones. The mean vector $M_j$ can serve as feature vector $X_j$ for virtual point from bin $B_j$ and therfore, its k-distance as well as its distance to any data point can be calculated. The bin count $C_j$ value can be used to simulate the lrd value of the virtual point from bin $B_j$. Since the local reachability density(lrd) measure the crowding of point p within its k-distanced objects, the higher the lrd is, the more crowed it is within the region of p. This imply that the larger the data points fall within that region of p, the higher the lrd value should be. Therefore, the lrd value of virtual point from $B_j$ can be given as:
+
+\begin{equation} \label{vir_lrd}
+	lrd(B_j) = \alpha \cdot log C_j 
+\end{equation}
+
+where $\alpha$ is a given parameter.
+
+
+% ----------------------------------------------------------------------------
+\subsection{Update binned summary} \label{subsect4}
+% ----------------------------------------------------------------------------
+
+The update of binned summary should happen at the end of each batch. In fact, the update of binned summary can happen concurrently when calculating the LOF factors for data points in current window and they should not interfere with each other. After calculating the binned summary, the data in current window can be safely discarded and make space for future data. The bin is kept in memory throughout the application and it keeps a historical summary of all the data points that have observed. It plays a key role in deciding the future outliers and therefor it need to be updated constantly to keep up with the change of patterns in outliers(concept drifts). The bin is updated as follows:
+
+Let $C_{j}^{n-1}$ denotes the number of data points , and $M_{j}^{n-1}$ denotes the mean value vector of bin $B_j$, at the time of which, we have observed $n-1$ windows of data. $c_{j}^{n}$ denotes the number of data points in bin $B_j$ in window $n$ and $\mathbf{\mu_j^n}$ denote the mean value vector in bin $B_j$ in window $n$. To update the value $C_{j}^{n-1}$ and $M_{j}^{n-1}$, we first look into the number of data points in all bins of current window. If a particular bin of the current window is significantly smaller than the average number of data points in other non-empty bins in the current window, we update its $C_{j}^{n-1}$ as follows, where $0 < \alpha < 1$  
+
+\[ C_{j}^{n-1} = \alpha \times C_{j}^{n-1} \] 
+
+This is necessary in order to keep the binned summary update to data with the latest change of distribution from data streams.
+
+Then update $C_j^n$, $M_j^n$ as follows:
+
+\[ C_j^n = c_j^n + C_j^{n-1} \]
+
+\[ M_j^n = \frac{(c_j^n \times \mathbf{\mu_j^n} + C_j^{n-1} \times M_j^{n - 1} )}{ c_j^n + C_j^{n-1} } \]
+
+Note that the number of binned item may grow exponential as number of dimension grows, and it is impossible to keep such large number of bins in memory. Instead, we only keep a non-empty bins in memory and in reality, most of the bins are empty and the number of non-empty bins should be much smaller than the number of $k^d$. 
+
+\includeFig{fig:binned-sumary}{Figures/update-binned-summary}{How to update the binned summary}
+
+% ############################################################################
+\section{GPU acceleration with CUDA} \label{proapp}
+% ############################################################################
+
+As we can see from the definition of LOF algorithm in \ref{lof_algorithm}, it is very computational consuming since It evolves first getting the k nearest neighbors for each data points in dataset. If we use the brute-force approach to find the neighbourhood, the time complexity is $O(N^2)$ since it needs to calculate the distance matrix of size N. This can also grow as the dimension of data is increased. Then, the local density(lrd) of each data point need to be calculated, by using the KNN information obtained previously. And finally, we calculate the LOF value for each data point based on the KNN information and the local density derived in previous steps. When the data is coming at a very high rates, this algorithm will probably not be able to give results in a timely manner and will probably hit the bottleneck. To avoid this bottleneck, I implemented a GPU-based approach, taking advantages of NVIDIA CUDA programming platform.
+
+The most expensive part of the algorithm is on the calculation of KNN. Specifically, it includes the calculation of distance matrix on query points and reference points and a sorting algorithm for each query points. In other words, if we have a query points of size N, and reference points of size R, we will get a $N \times P$ dimension of distance matrix and sort the distances across each columns. GPU programming follows SIMD(Single Instruction Multiple Data) architecture and the performance of the GPU code depends really on how to manage memory access and threads resources efficiently. NVIDIA CUDA support something called \textbf{shared memory}, which means all threads within a block can share a same memory space and avoid unnecessary data transfer between global memory to each individual threads' local memory. To further take the advantages of coalesces memory access in GPU, the input matrices are converted to a column-major format($d \times N$) and each thread block will contain a multiple of 32 threads since threads in NVIDIA GPUs are executed in warp, which is a set of successive 32 scheduled threads together. This can be taken a great advantages of to give a significant boost in our KNN algorithm as well as the following algorithms to calculate the lrd and lof values for each data. The following section explain details on the LOF\_GPU algorithm
+
+\subsection{LOF\_GPU(Local Outlier Factor on GPU) Algorithm}
+
+The CUDA program consists of a host program, which runs on CPU and a device program which is executed on GPU. The device program is written using a so-called \textit{kernel functions}. Each kernel function is run by thousands of threads concurrently. Threads are organized in terms of block and grids. Each block contain multiple threads and they each have a unique \textit{threadIdx(id)} within the block. Each grid contain multiple blocks and they each have a unique \textit{blockIdx(id)} within the grid. Both \textit{threadIdx} and \textit{blockIdx} can be identified using 1D, 2D, or 3D indeces. This give a very nature way to process mathematical data such as matrix, vector etc. In order to let GPU process the input data, they need to be transferred from host memory to device memory first. To fully utilize the power of coalesced memory access in CUDA, the input data converted in the column-wise fashion($d \times N$ matrix). Depending on the number of data and dimensions of data point, we can adjust the number of threads per blocks and number of blocks per grids to fully utilize resources power on GPU. 
+
+Based on the definition of LOF described in \ref{subsect1} and binned statistical summary described in \ref{subsect1}, I have defined the following host and kernel functions to process data in each window:
+
+\begin{itemize}
+	\item Compute the LOF values for data points in current data window, with the binned summary from previous data window, assuming $X^n$ is the data point in current window $n$ and $M^{n-1}$ is mean value vector from binned summary of previous window $n-1$
+		\begin{itemize}
+			\item Kernel 1: Compute the distances(Euclidian) matrix $T$ between $X^n + M^{n-1}$ and itself(query points = reference points)
+			\item Kernel 2: Sort the table $T$ column wise. Get the $k^th$ row(k-distances)
+			\item Kernel 3: Sort the sub-table $T[:,0:N]$ column wise, get the indices range from $0 - k$(k-nearest neibourhood)			
+			\item Kernel 4: Compute the lrd(local reachability density) for $X$, based on equation \ref{lrd}
+			\item Host function 1: Compute the virtual lrd for $M^{n-1}$, based on equation \ref{vir_lrd}
+			\item Kernel 5: Compute the LOF(local outlier factors) for $N$, with lrd appended by virtual lrd as reference points.
+			\item Host function 2: Update the average LOF values $\alpha$ as threshold.
+		\end{itemize}	
+%	\item Compute and update the binned statistical summary in current data window
+%		\begin{itemize}
+%			\item Host function 2: Find the upper bound and lower bound from each data point $x_j$ across each dimension $d$
+%			\item Kernel 6: Compute the bin index for each data point $x_j$, based on the upper bound and lower bound.
+%			\item Kernel 7: Update the binned summary for each bin item, $M_j$ and $C_j$, based on the bin index.
+%		\end{itemize}		
+\end{itemize}
+
+While processing the values for the LOF, the computing and updating of binned summary can execute simutanously since they do not rely no each other, as long as the input of the binned summary for computing LOF is from the previous window. For sorting which takes places in Kernel 2 and Kernel 3, I use a built-in library called cuBLAS\footnote{https://developer.nvidia.com/cublas}, which implement RadixSort algorithm on GPU. Since sorting on each query point does not depend on each other, I assigned the sorting task on each column in $T$ to different \textit{CUDA streams} to concurrently run the sorting kernels. Other kernels are implemented from scratch, which is described in details in the following:
+
+\break
+
+\begin{enumerate}
+	\item {\textit{Kernel 1 - Calculate the distance matrix}}
+	
+	Before calculate the distance matrix, the data points $X$ need to be merged with the mean value vector $M$ from non-empty binned summary of previous window. To take the advantage of coalesces memory access in GPU, the merged matrix need to be transposed to dimension of size $d \times N'$ where $N'$ is the total number of data points in current window and the number of non-empty bins from previous window. Since the query points and reference points are the same in this case, the goal of Kernel 1 is to calculate any pair-wise combination of the distances within size of $N'$ data points and to achieve this, $N' \times N'$ computation is needed. The result of this computation will be a $N' \times N'$ dimension matrix. Hence, I divided the computation into $B \times B$ dimension blocks, each consisting of $T \times T$ dimension threads., where $B = N' / T$ and T must be a multiple of size 32 to achieve the coalesces memory access. Additionally, the size of matrix $N'$ and dimension of data point $d$ needs to be rounded(padded) to the multiple of warp size of 32 to achieve further more coalescing.
+	
+	Since each data point from $N'$ is access multiple times during the calculation and in GPU, retrieving the same data from global memory is a very expensive operation, we therefore divide the $d \times N'$ matrix into size of $d  \times T$ sub-matrices and copy two of them each time(one from query points, the other from reference points) to the block-wise \textit{shared memory} to get the partial squared matrix of size $T \times T$ in the final result matrix of size $N' \times N'$. Then, we perform the distance calculations among all possible combinations in these two sub-matrices, one from query points, the other from reference points, across all dimensions. The result will be partial distances between data points of size $T$ from query points and data points of size $T$ from reference points. The is repeated among all thread blocks to get the final distance matrix. 
+	
+	\item {\textit{Kernel 3 - Local Reachability Density Estimation}}
+	
+	The computation of lrd depends on the KNN indices achieved in Kernel 3 and the K-distances achieved in Kernel 2 as well as the total data points from current window and the mean value vector from non-empty binned summary of previous window, $X + M$. KNN is a $N \times K$ dimension matrix, where $N$ is the number of data point and $K$ is the number of selected neighbourhood. Based on the definition of lrd in \ref{lrd}, we need to calculate the average reachability distances among all $K$ neighbors from all data points in $X$. This involve a total number of $N \times K$ calculations. To take the advantage of the \textit{shared memory} in thread block in order to calculate the average of reachability distances among K instances, in Kernel 3, the thread layout has been organized as $N$ blocks, with $K$ threads for each. The KNN matrix should be padded to multiple of 32 for each dimension in order to achieve coalesced memory access. 
+	
+	For each thread in a block, it first loads centroid point $p$ based on the block index, for which we want to calculate the lrd value of, into shared memory since it needs to be loaded by other threads in the block as well. Then, it loads the corresponding neighbor data $p$ as well as its k-distance by the thread index in order to calculate the reachability distance between data $p$ and $q$, based on the equation \ref{rdist}. After all threads in a block finishing loading and calculating their reachability distances, all threads are synchronized and the inverse of average reachability distances in this block is calculated, which is the lrd value for the data point given by this block index
+			
+	\item {\textit{Kernel 4 - Local Outlier Factor Estimation}}
+	
+	After getting the lrd values for each query data points from the window data $X$ and mean vector value $M$, the calculation of LOF values are very similar to that of lrd in Kernel 3. We still need the KNN matrix, but this time, we only need the lrd values calculated from previous step as reference data points. Still, the kernel will require $N \times K$ calculations and therefore, it have N thread block with K threads in each. The KNN matrix should also be padded to be in the dimension of multiple of 32. As for the shared memory, we need to store the lrd value for the current query point as well as the lrd values for all its neighbors into shared memory to speedup the data accessing in final step. And finally when all data is loaded, the LOF value can be calculated based on \ref{lof}
+
+\end{enumerate}
 
 % ############################################################################
 \section{Project Report} \label{projrep}
