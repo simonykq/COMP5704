@@ -25,18 +25,18 @@
 % Title
 % ############################################################################
 
-\title{PRESENTATION OUTLINE: --- Your Project Title ---}
+\title{PRESENTATION OUTLINE: A parallel implementation of outlier detection over data streams}
 
 
 % ############################################################################
 % Author(s) (no blank lines !)
 \author{
 % ############################################################################
-John Doe\\
+Kangqing YU\\
 School of Computer Science\\
 Carleton University\\
 Ottawa, Canada K1S 5B6\\
-{\em John-Doe@scs.carleton.ca}
+{\em kangqingyu@cmail.carleton.ca}
 % ############################################################################
 } % end-authors
 % ############################################################################
@@ -44,23 +44,67 @@ Ottawa, Canada K1S 5B6\\
 \maketitle
 
 % ############################################################################
-\begin{slide}{Title of my first slide}
-\item first thing
-\item second thing
-\item third thing
-\item fourth thing
+\begin{slide}{Outlier detection task}
+\item Outlier detection definition
+\item Typical methods \& algorithm
+\item Main application
 \end{slide}
 
 
 % ############################################################################
-\begin{slide}{Title of my second slide}
-\item first thing
-\item second thing
-\item third thing
-\item fourth thing
+\begin{slide}{Data streams}
+\item Characteristics of data streams
+\item Requirements of real-time data streams processing
+\item Outlier detection over data streams
+\item Main challenges
 \end{slide}
 
-\noindent ... more slides ...
+\begin{slide}{Introduction to parallel computing}
+\item GPU and SIMD
+\item NVIDIA \& CUDA framework
+\item Others 
+\end{slide}
+
+\begin{slide}{Goal of this project}
+\item Intersection of outlier detection, data streams and parallel computations
+\item Brief description of proposed approach
+\item Novelty 
+\end{slide}
+
+\begin{slide}{Local Outlier Factor(LOF) algorithm}
+\item General idea
+\item Steps and mathematical formulas
+\item Extremely computational expensive 
+\end{slide}
+
+\begin{slide}{Statistical binned summary}
+\item What is contained in the binned summary
+\item How to calculate the bin index for each data point
+\item How to maintain/update the binned summary
+\item Curse of dimension problem
+\end{slide}
+
+\begin{slide}{Cumulative LOF algorithm(modified version)}
+\item General idea
+\item Role of the binned summary
+\item Steps and mathematical formulas
+\end{slide}
+
+\begin{slide}{Implementation of cumulative LOF on CUDA}
+\item Coalesced memory access \& shared memory
+\item Detailed steps in host and kernel functions
+\item Threads managements in each kernels
+\end{slide}
+
+\begin{slide}{Binned summary maintenance using MapReduce}
+\item Why MapReduce?
+\item Map stage
+\item Reduce stage
+\end{slide}
+
+\begin{slide}{Q \& A}
+\item Questions?
+\end{slide}
 
 % ############################################################################
 % Bibliography
