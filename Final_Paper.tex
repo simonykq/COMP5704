@@ -74,7 +74,7 @@ Ottawa, Canada K1S 5B6\\
 % Abstract
 % ############################################################################
 \begin{abstract}
-Outlier detection has become an increasing challenging task in modern applications due to the fact that the data may come in the form of streams rather than statically as it was before. A lot of algorithms have been modified so that they can work in the streaming environment. Among all of them, a very popular technique called \textit{sliding window} is used, which only keep a portion of streaming data in memory and detect outliers purely based on those data. A main drawback with this approach is that the decision of outliers is only based on the data in current window and historical data are simply dropped and not considered in decision making of outlier data in current window. Therefore, this method fails to address the challenge of \textit{concerpt drift} in data streams. Another challenge in detecting outliers in data streams is that since the data may come at a very high rates and it is impossible to store all data in memory, the decision should be made in a timely manner with only one pass over data stream. This will pose a very harsh requirement in computational power and in most case, it is impossible for CPU programming to achieve. In this project, I purposed a novel solution to detect outliers in streaming environment, powered by GPU and MapReduce framework, based on a very efficient classical algorithm called LOF(Local Outlier Factor) to address the increasing challenge of outlier detection over continuous data streams. The proposed method is able to address the \textit{concerpt drift} in data streams, as well as detecting outliers in high-dimensional, high-rates data streams and produces timely results without compromising performances. Since the LOF algorithm is very computational expensive, very few works(almost none) have been conducted to extend the algorithm to work in streaming environment. As far as I know, the solution I purposed is the first algorithm that try to modify the LOF algorithm in the streaming environment and therefore it is also the first parallel implementation of LOF algorithm in the streaming context.
+Outlier detection has become an increasing challenging task in modern applications due to the fact that the data may come in the form of streams rather than statically as it was before. A lot of algorithms have been modified so that they can work in the streaming environment. Among all of them, a very popular technique called \textit{sliding window} is used, which only keep a portion of streaming data in memory and detect outliers purely based on those data. A main drawback with this approach is that the decision of outliers is only based on the data in current window and historical data are simply dropped and not considered in decision making of outlier data in current window. Therefore, this method fails to address the challenge of \textit{concerpt drift} in data streams. Another challenge in detecting outliers in data streams is that since the data may come at a very high rates and it is impossible to store all data in memory, the decision should be made in a timely manner with only one pass over data stream. This will pose a very harsh requirement in computational demends and in most case, it is impossible for CPU programming to achieve. In this project, I purposed a novel solution to detect outliers in streaming environment, powered by CUDA and MapReduce framework, based on a very efficient classical algorithm called LOF(Local Outlier Factor) to address the increasing challenge of outlier detection over continuous data streams. The proposed method, named C\_LOF is able to address the \textit{concerpt drift} in data streams, as well as detecting outliers in high-dimensional, high-rates data streams and produces timely results without compromising performances. Since the LOF algorithm is very computational expensive, very few works(almost none) have been conducted to extend the algorithm to work in streaming environment. As far as I know, the solution I purposed is the first algorithm that try to extend the LOF algorithm in the streaming environment and therefore it is also the first parallel implementation of LOF algorithm in the streaming context.
 \end{abstract}
 
 
@@ -88,14 +88,13 @@ To be more specific, suppose you have a data stream that keeps coming indefinite
 
 \includeFig{fig:evolving}{Figures/evolving-data}{Evolving 2D data stream}
 
-In this project, I developed an novel, modified version of \textit{Local Outlier Factor} algorithm, called Cumulative Local Outlier Factor, with the support of statistical binned summary, where an outlier decision is considered not only based the data points in the current data window, but also taking consideration of historical data without the necessity storing the entire dataset in the secondary memory. In doing so, I kept a statistical binned summary of all the observed data to help making decisions on outlier for data points within current processing window, and gradually fade away the impact of the obsolete data when making decisions on current data. Thus the proposed algorithm should provide a more accurate results compared to the widely used sliding window approach. 
+In this project, I developed an novel, modified version of \textit{Local Outlier Factor} algorithm, called Cumulative Local Outlier Factor, or C\_LOF in short, with the support of statistical binned summary, where an outlier decision is considered not only based the data points in the current data window, but also taking consideration of historical data without the necessity storing the entire dataset in the secondary memory. In doing so, I kept a statistical binned summary of all the observed data to help making decisions on outlier for data points within current processing window, and gradually fade away the impact of the obsolete data when making decisions on current data. Thus the proposed algorithm should provide a more accurate results compared to the widely used sliding window approach. 
 
-Note that most density-based approaches in outlier detection, including LOF, despite being accurate, are notorious of being computational expensive. And therefore, it is almost impossible to detect outliers with high volume, high speed data streams without introducing parallelism. Other computational in-expensive algorithms exists but they either need to sacrifice on the accuracy or assuming fixed distribution over the underlying data, which fails to capture the nature of \textit{concerpt drift} in data streams. To address the expensive computation demands of the LOF algorithms over data streams, I employed parallelism in this project as an implementation of the proposed algorithm. To be more specific, the Cumulative Local Outlier Factor algorithm is implemented on GPU with CUDA framework to accelerate the computational time in order to provide timely results over the high input rates of streaming data and maintenance of binned summary is implemented using the MapReduce programming paradigm, which to a great extent, simplify the problem as well as leaving a lot of rooms for parallelizing. 
+Note that most density-based approaches in outlier detection, including LOF, despite being accurate, are notorious of being computational expensive. And therefore, it is almost impossible to detect outliers with high volume, high speed data streams without introducing parallelism. Other computational in-expensive algorithms exists but they either need to sacrifice on the accuracy or assuming fixed distribution over the underlying data, which fails to capture the nature of \textit{concerpt drift} in data streams. To address the expensive computation demands of the LOF algorithms over data streams, I employed parallelism in this project as an implementation of the proposed algorithm. To be more specific, the C\_LOF algorithm is implemented on GPU with CUDA framework to accelerate the computational time in order to provide timely results over the high input rates of streaming data and the maintenance of binned summary is implemented using the MapReduce programming paradigm, which to a great extent, simplify the problem as well as leaving a lot of rooms for parallelizing. 
 
 %\ref{proa} give a details explaination on the algorithm
 
-The accuracy of the result in this method is compared with another GPU accelerated approach, SOD\_GPU as proposed in \cite{7516110}, which is based on \textit{kernel density estimator}. And the speedup on performance is compared with distance-based method based on sliding window, which runs in a multi-core CPU to further illustrate that LOF\_GPU can practically be used in a streaming environment to detect outliers at a high rate of data volume where it is otherwise incapable to handle by CPU. 
-
+The accuracy of the result produced by this algorithm is compared with \textit{window-based} methods, where no historical data is considered to show that by mining historical data, it indeed can help predict outliers more accurately. In addition, the performance of the purposed C\_LOF algorithm under the GPU implementation, is measured against CPU implementation of LOF, where no parallelism is used to further illustrate that the proposed method can achieve a significant speedup for outlier detection compared with classical sequential implementation.
 
 % ############################################################################
 \section{Literature Review} \label{litrev}
@@ -119,13 +118,15 @@ In contrast, unsupervised learning methods don't require labelled input and typi
 
 \textit{Distance-based approach} was among the very first outlier detection method introduced by Knorr and Ng\cite{EKnorr:1998} that detect outliers in a static environment. It calculates the pair-wise Euclidian Distance between all data and if one data point has less than $k$ neighbors within distance $R$, it is considered an outlier. There are some variants of the static distance-based approaches, and their ideas are quite similar. For instance, Ramaswamy et all.\cite{Ramaswamy:2000:EAM:342009.335437} purposed a method where an outlier is defined by considering the total number of objects whose distance to its $k^{th}$ nearest neighbor is smaller than itself. Angiulli and Pizzuti\cite{1377172} introduced a method where an outlier is defined by taking into account of the sum of the distances from $1^st$ up to the $k^{th}$ nearest neighbors. These methods are sometimes referred as KNN and it should be noted that it is different from the term KNN in supervised machine learning. 
 
-\textit{Density-based approach} is another way to detect outlier on static data. The basic idea is to assign a degree of being outlier(a score) based on the density of local neighbourhood, given some predefined restrictions. A popular example of this approach is Local Outlier Factor(LOF) algorithm\cite{Breunig:2000:LID:342009.335388}, which is what this proposed algorithm is based on, use the concept called \textit{reachability} to coin the density of data point. Another popular density-based outlier detection method is called LOCI(Local Correlation Integral)\cite{1260802}
+\textit{Density-based approach} is another way to detect outlier on static data. The basic idea is to assign a degree of being outlier(a score) based on the density of local neighbourhood, given some predefined restrictions. A popular example of this approach is Local Outlier Factor(LOF) algorithm\cite{Breunig:2000:LID:342009.335388}, which is what this proposed algorithm is based on, use the concept called \textit{reachability} to coin the density of data point. The density of each data point is measured by considering the reachability of this data point, in regards to the reachabilities of its neighbors', as shown in Figure \ref{fig:lof}. Another popular density-based outlier detection method is called LOCI(Local Correlation Integral)\cite{1260802}
+
+\includeFig{fig:lof}{Figures/lof}{The Local Outlier Factor (LOF) algorithm}
 
 There are some other types of outlier detection techniques on static data. \textit{Statistics approach}, which is based on the probability theory and normally models the underlying data using a stochastic distribution(e.g. Gaussian distribution). One of the most popular one used is \textit{auto-regression} model or sometimes being referred as Gaussian mixture model\cite{4438332}; \textit{Deviation approach}, which is first introduced by Arning et al.\cite{A.Arning:deviation}, where an outlier is detected if feature space of one data point deviates largely from other data points; Another recent technique introduced by Harkins et al.\cite{S.Harkins:rnn} takes advantage of replicator neutral network(RNN) to detect outliers. There might be other techniques used for unsupervised outlier detection but due to the limitation of this paper, I can only list some of them. The ones mentioned above are those best-known so far to detect outliers statically.
 
 %Aggarwal and YU\cite{Aggarwal:2001:ODH:375663.375668} proposed a technique for outlier detection. The basic idea in their definition is, a point is an outlier, if in some lower dimensional projection it is present in a local region of abnormally low density. This method is also an efficient method for high dimensional data set\cite{04666541}. 
 
-As modern applications have an increasing demands to process streaming data in real-time, a lot of these static methods mentioned before have been extended to work in the dynamic streaming environments. The all based on the same ideas in static approaches but algorithms have been modified in an incremental fashion to address the \textbf{concept drift} of the data stream properties.
+As modern applications have an increasing demands to process streaming data in real-time, a lot of these static methods mentioned before have been extended to work in the dynamic streaming environments. The all based on the same ideas in static approaches but algorithms have been modified in an incremental fashion to address the \textit{concept drift} of the data stream properties.
 
 Distance-based outlier detection approach was among the first which start to apply the method in the streaming context. In the last decade, there are several studies which focus on \textit{distance-based outlier detection in data streams(DODDS)}. Due to the fact that the distance-based require random access on the data and this is not possible with stream data, \textit{sliding window} technique was introduced which only keep a number of active objects in current window. When objects expire, they are deleted from memory as new object comes in. There are mainly two window models in data streams: count-based window and time-based window
 
@@ -143,7 +144,7 @@ Even though there are many studies in the last decade that focusing on detecting
 \section{Proposed Approach} \label{proapp}
 % ############################################################################
 
-Unlike the classical LOF algorithm, the proposed LOF\_GPU method proposed here is capable of processing outlier in data stream $S = {X_1, X_2, X_3, ......., Xn, .......}$, where each data point $S_i$ can be arbitrary d-dimension such that $X_i = <x_{i1}, x_{i2}, ......., x_{id}>$ without storing all observed data. This is achieved by keeping a binned summary of all processed data and these summary statistics is used to help decide the Local Outlier Factor of future data points. Specifically, the binned summary acts as \textit{virtual data points}, whose \textbf{local reachability density(lrd)}(explained later) is pre-calculated based on the frequencies of previous data that fall into that bin, and need not calculate its own Local Outlier Factor. The full details of this algorithm is explained in following:
+Unlike the classical LOF algorithm, the proposed C\_LOF method is capable of processing outlier in data stream $S = {X_1, X_2, X_3, ......., Xn, .......}$ without storing all observed data, where each data point $S_i$ can be arbitrary dimension of $d$ e.g. $X_i = <x_{i1}, x_{i2}, ......., x_{id}>$. This is achieved by keeping a binned summary of all processed data and these summary statistics is used to help decide the Local Outlier Factor of future data points. Specifically, the binned summary acts as \textit{virtual data points}, whose \textit{local reachability density(lrd)}(explained later) is pre-calculated based on the frequencies of previous data that fall into that bin, and do not need to calculate the LOF values of their own. The full details of this algorithm is explained in following:
 
 % ----------------------------------------------------------------------------
 \subsection{Local Outlier Factor} \label{subsect1}
@@ -168,9 +169,9 @@ The main idea of LOF algorithm is to assign each data point a degree(score) of b
 		\end{equation}
 \end{enumerate}
 
-The outlierness is detected once the LOF of point p is greater than a pre-defined threshold $\theta$. To avoid generating a large amount of false positives, we dynamic update the value of $\theta$ based on the average of LOF over all observed data since outliers are minorities and rarely seen.
+The outlierness is detected once the difference between the LOF value of data point p and the average value of LOF over all observed data is greater than a pre-defined hyper-parameter $\theta$. Based on my experiments, the value of $\theta$ should be something between $[0.2, 0.5]$ and if the LOF value of a data point is greater than 1, this will highly likely to be a outlier.
 
-\[ \theta = \frac{1}{N} \sum_{p=1}^{N} LOF(p) \]
+\[ | LOF(p') - \frac{1}{N} \sum_{p=1}^{N} LOF(p) | > \theta \]
 
 To extend the LOF algorithm in context of data stream, I borrowed the idea of \textit{sliding window} from DODDS(distance-based outlier detection in data stream) and maintain chunks of data points in memory. But different from DODDS which take no consideration of historical data, I apply the LOF algorithm over data points in current window plus the virtual data points from the binned statistical summary(explained shortly). This will give a more accurate estimate of outliers since some synopsis of previous data points is maintained.
 
@@ -204,7 +205,7 @@ For each bin, we maintain the count number of all data points that fall into thi
 \subsection{Update the binned summary} \label{subsect4}
 % ----------------------------------------------------------------------------
 
-Once we calculate the bin index for each data point in current window $n$, we can now proceed to update the binned summary which based on previous window $n-1$. One thing to note is that the update of binned summary can happen concurrently when calculating the LOF factors for data points in current window and they should not interfere with each other. After calculating the binned summary, the data in current window can be safely discarded and make space for future data. The bin is kept in memory throughout the application and it keeps a historical summary of all the data points that have observed. It plays a key role in deciding the future outliers and therefore it need to be updated constantly to keep up with the change of patterns in outliers(concept drifts). The following describe the procedure on how binned summary is updated:
+Once we calculate the bin index for each data point in current window $n$, we can now proceed to update the binned summary based on previous window $n-1$. One thing to note is that the update of binned summary can happen concurrently when calculating the LOF factors for data points in current window and they should not interfere with each other. After calculating the binned summary, the data in current window can be safely discarded and make space for future data. The bin is kept in memory throughout the application and it keeps a historical summary of all the data points that have observed. It plays a key role in deciding the future outliers and therefore it need to be updated constantly to keep up with the change of patterns in outliers(concept drifts). The following describe the procedure on how binned summary is updated:
 
 Let $C_{j}^{n-1}$ denotes the number of data points , and $M_{j}^{n-1}$ denotes the mean value vector of bin $B_j$, at the time of which, we have observed $n-1$ windows of data. $c_{j}^{n}$ denotes the number of data points in bin $B_j$ in window $n$ and $\mathbf{\mu_j^n}$ denote the mean value vector in bin $B_j$ in window $n$. To update the value $C_{j}^{n-1}$ and $M_{j}^{n-1}$, we first look into the number of data points in all bins of current window. If the number of data points in a particular bin($c_{j}^{n}$) in the current window is significantly smaller than the average number of data points($c_{avg}^{n}$) in other non-empty bins in the current window, we update its $C_{j}^{n-1}$ as follows, where $0 < \alpha < 1$ and $0 < \delta < 1$  
 
@@ -223,7 +224,7 @@ Note that the number of binned item may grow exponential as number of dimension 
 \includeFig{fig:binned-sumary}{Figures/update-binned-summary}{How to update the binned summary}
 
 % ----------------------------------------------------------------------------
-\subsection{Cumulative Local Outlier Factor} \label{subsect3}
+\subsection{Cumulative Local Outlier Factor (C\_LOF)} \label{subsect3}
 % ----------------------------------------------------------------------------
 
 When the binned statistical summary is calculated, it can be used together with the data points in the next window to decide the outliers in that window. The algorithm to calculate the Local Outlier Factor for new data points based on binned summary is as follows:
@@ -231,10 +232,11 @@ When the binned statistical summary is calculated, it can be used together with 
 \begin{algorithm} \textbf{Cumulative LOF:} \label{LOF_GPU}
        	\step{(1)}{Combine the data points $X$ with the virtual points in binned summary $B$, noted as $X + B$}
 	\step{(2)}{Calculate the k-distance for each pair of data points within $X + B$}
-	\step{(3)}{Calculate the k nearest neighbourhood, but this time only for data points $X$ within all data points $X + B$}
+	\step{(3)}{Calculate the k nearest neighbourhood, but this time only for data points $X$(query set) within all data points $X + B$(reference set)}
 	\step{(4)}{Calculate the lrd values for data points in $X$, noted as $Lrd$, with the k-distance information obtained in step 2 and the given virtual points in binned summary $B$}
 	\step{(5)}{Calculate the syntactic lrd values for virtual data from binned summary $B$, noted as $vLrd$ based on equation \ref{vir_lrd}}
-	\step{(6)}{Combine the lrd values from both data points $X$ and binned summary $B$, noted as $Lrd + vLrd$ and calculate the LOF values for data points in $X$} based on $Lrd + vLrd$
+	\step{(6)}{Combine the lrd values from both data points $X$ and binned summary $B$, noted as $Lrd + vLrd$}
+	\step{(7)}{Calculate the LOF values for data points in $X$ based on $Lrd + vLrd$}
 \end{algorithm}
 
 Note that virtual points from binned summary are only presented to help calculating LOF values for future data. Hence, they do not need to calculate LOF values of their own, nor their k-distance-neighbourhood. But they do need to calculate their k-distances and lrd values since these are the required information in order to calculate the LOF values of their neighbourhood, which can be a real data point rather than virtual ones. The mean vector $M_j$ can serve as feature vector $X_j$ for virtual point from bin $B_j$ and therfore, its k-distance as well as its distance to any data point can be calculated. The bin count $C_j$ value can be used to simulate the lrd value of the virtual point from bin $B_j$. Since the local reachability density(lrd) measure the crowding of point p within its k-distanced objects, the higher the lrd is, the more crowed it is within the region of p. This imply that the larger the data points fall within that region of p, the higher the lrd value should be. Therefore, the lrd value of virtual point from $B_j$ can be given as:
@@ -251,13 +253,11 @@ where $\alpha$ is a predefined parameter.
 
 As we can see from the definition of LOF algorithm in \ref{lof_algorithm}, it is very computational consuming since It evolves first getting the k nearest neighbors for each data point in dataset. If we use the brute-force approach to find the neighbourhood, the time complexity is $O(N^2)$ since it needs to calculate the distance matrix of size N. This can also grow as the dimension of data is increased. The same can be true when calculating the statistical binned summary and update it based on the bin index. When the data is coming at a very high rates with each data point having a very large dimension, this algorithm will probably not be able to give results in a timely manner and will hit the bottleneck. 
 
-To avoid this bottleneck, I implemented a parallel-based approach, taking advantages of both NVIDIA CUDA programming platform and the MapReduce programming paradigm to fully accelerate this framework. Specifically, the CUDA framework is used to calculate the LOF values in current window based on the proposed cumulative LOF algorithm in GPU and the update of statistical binned summary is implemented using MapReduce which can potentially run in a cluster. These two steps can be achieved simultaneously, which gives another level of parallelism.
+To avoid this bottleneck, I implemented a parallel-based approach, taking advantages of both NVIDIA CUDA programming platform and the MapReduce programming paradigm to fully accelerate this framework. Specifically, the CUDA framework is used to calculate the LOF values in current window based on the proposed C\_LOF algorithm in GPU and the update of statistical binned summary is implemented using MapReduce which can potentially run in a cluster. These two steps can be achieved simultaneously and do not depend on each other, which gives another level of parallelism.
 
-For the calculation of LOF values, the most expensive part of the algorithm is on the calculation of KNN. Specifically, it includes the calculation of distance matrix on query points and reference points and a sorting algorithm for each query points. In other words, if we have a query points of size N, and reference points of size R, we will get a $N \times P$ dimension of distance matrix and sort the distances across each columns. GPU programming follows SIMD(Single Instruction Multiple Data) architecture and the performance of the GPU code depends really on how to manage memory access and threads resources efficiently. NVIDIA CUDA support something called \textbf{shared memory}, which means all threads within a block can share a same memory space and avoid unnecessary data transfer between global memory to each individual threads' local memory. To further take the advantages of coalesces memory access in GPU, the input matrices are converted to a column-major format($d \times N$) and each thread block will contain a multiple of 32 threads since threads in NVIDIA GPUs are executed in warp, which is a set of successive 32 scheduled threads together. This can be taken a great advantages of to give a significant boost in our KNN algorithm as well as the following algorithms to calculate the lrd and LOF values for each data. 
+For the calculation of LOF values, the most expensive part of the algorithm is on the calculation of KNN. Specifically, it includes the calculation of distance matrix on query points and reference points and a sorting algorithm for each query points. In other words, if we have a query points of size N, and reference points of size R, we will get a $N \times P$ dimension of distance matrix and sort the distances across each columns. GPU programming follows SIMD(Single Instruction Multiple Data) architecture and the performance of the GPU code depends really on how to manage memory access and threads resources efficiently. NVIDIA CUDA support something called \textit{shared memory}, which means all threads within a block can share a same memory space and avoid unnecessary data transfer between global memory to each individual threads' local memory. To further take the advantages of coalesces memory access in GPU, the query points matrices are converted to a column-major format($d \times N$) and each thread block will contain a multiple of 32 threads since threads in NVIDIA GPUs are executed in warp, which is a set of successive 32 scheduled threads together. This can be taken a great advantages of to give a significant boost in our KNN algorithm as well as the following algorithms to calculate the lrd and LOF values for each data. 
 
-For the update of statistical binned summary, I basically divide the algorithm into two steps. The Map step and the Reduce step. And depending on whether the data point is from the current window or it is a virtual one from the binned summary, they are treated differently. Therefore, the MapReduce framework fit naturally to this problem and it is also a parallel programming paradigm by its nature.
-
-The following section explains this in details:
+For the update of statistical binned summary, I basically divide the algorithm into two steps. The Map step and the Reduce step. And depending on whether the data point is from the current window or it is a virtual one from the binned summary, they are treated differently. Therefore, the MapReduce framework fit naturally to this problem and it is also a parallel programming paradigm by its nature. The following section explains this in details:
 
 \subsection{Calculate cumulative Local Outlier Factor with GPU acceleration}
 
@@ -276,19 +276,19 @@ Outputs: LOF values for all data points from current window $LOF^n$
 	\item Kernel 4: Compute the lrd(local reachability density) for $X$, based on equation \ref{lrd}
 	\item Host function 1: Compute the virtual lrd for $M^{n-1}$, based on equation \ref{vir_lrd}
 	\item Kernel 5: Compute the LOF(local outlier factors) for $N$, with lrd appended by virtual lrd as reference points.
-	\item Host function 2: Update the average LOF values $\alpha$ as threshold.
+	\item Host function 2: Update the average LOF values $\alpha$.
 \end{itemize}		
 
-While processing the values for the LOF, the computing and updating of binned summary can execute simultanously since they do not rely no each other, as long as the input of the binned summary for computing LOF is from the previous window. For sorting which takes places in Kernel 2 and Kernel 3, I use a built-in library called cuBLAS\footnote{https://developer.nvidia.com/cublas}, which implement RadixSort algorithm on GPU. Since sorting on each query point does not depend on each other, I assigned the sorting task on each column in $T$ to different \textit{CUDA streams} to concurrently run the sorting kernels. Other kernels are implemented from scratch, which is described in details in the following:
+While processing the values for the LOF, the computing and updating of binned summary can execute simultanously since they do not rely no each other, as long as the input of the binned summary for computing LOF is from the previous window. To save the bandwidth and avoid transferring the data back and forth between CPU memory and GPU memory, the KNN indices information acquired from Kernel 3 remain in the device memory and does not need to transfer back to host memory. For sorting which takes places in Kernel 2 and Kernel 3, I use a built-in library called cuBLAS\footnote{https://developer.nvidia.com/cublas}, which implement RadixSort algorithm on GPU. Since sorting on each query point does not depend on each other, I assigned the sorting task on each column in $T$ to different \textit{CUDA streams} to concurrently run the sorting kernels. Other kernels are implemented from scratch, which is described in details in the following:
 
 \begin{enumerate}
 	\item {\textit{Kernel 1 - Calculate the distance matrix}}
 	
-	Before calculate the distance matrix, the data points $X$ need to be merged with the mean value vector $M$ from non-empty binned summary of previous window. To take the advantage of coalesces memory access in GPU, the query matrix need to be transposed to column-major format of dimension $d \times N'$ where $N'$ is the total number of data points in current window and the number of non-empty bins from previous window. The reference matrix remain the same as row-major, which has dimension of $N' \times d$. The details of the structure is explained in Figure \ref{memory_access} Since the query and reference points are the same in this case, the goal of Kernel 1 is to calculate any pair-wise combination of the distances within size of $N'$ data points and to achieve this, $N' \times N'$ computation is needed. The result of this computation will be a $N' \times N'$ dimension matrix. Hence, I divided the computation into $B \times B$ dimension blocks, each consisting of $T \times T$ dimension threads., where $B = N' / T$ and T must be a multiple of size 32 to achieve the coalesces memory access. Additionally, the size of matrix $N'$ and dimension of data point $d$ needs to be rounded(padded) to the multiple of warp size of 32 to achieve further more coalescing.
+	Before calculate the distance matrix, the data points $X$ need to be merged with the mean value vector $M$ from non-empty binned summary of previous window. To take the advantage of coalesces memory access in GPU, the query matrix need to be transposed to column-major format of dimension $d \times N'$ where $N'$ is the total number of data points in current window plus the number of non-empty bins from previous window. The reference matrix remain the same as row-major, which has dimension of $N' \times d$. The details of this structure can be explained in Figure \ref{memory_access}. Since the query and reference points are the same in this case, the goal of Kernel 1 is to calculate any pair-wise combination of the distances within size of $N'$ data points and to achieve this, $N' \times N'$ computation is needed. The result of this computation will be a $N' \times N'$ dimension matrix. Hence, I divided the computation into $B \times B$ dimension blocks, each consisting of $T \times T$ dimension threads., where $B = N' / T$ and T must be a multiple of size 32 to achieve the coalesces memory access. Additionally, the size of matrix $N'$ and dimension of data point $d$ needs to be rounded(padded) to the multiple of warp size of 32 to achieve further more coalescing.
 
 \includeFig{memory_access}{Figures/coalesces-memory-access}{To achieve the coalesces memory access, the query matrix is converted to column-major format and the block size T as well as input data size N need to be multiple of the warp size 32}	
 	
-	Since each data point from $N'$ is access multiple times during the calculation and in GPU, retrieving the same data from global memory is a very expensive operation, we therefore divide the $d \times N'$ matrix into size of $d  \times T$ sub-matrices and copy two of them each time(one from query points, the other from reference points) to the block-wise \textit{shared memory} to get the partial squared matrix of size $T \times T$ in the final result matrix of size $N' \times N'$. Then, we perform the distance calculations among all possible combinations in these two sub-matrices, one from query points, the other from reference points, across all dimensions. The result will be partial distances between data points of size $T$ from query points and data points of size $T$ from reference points. The is repeated among all thread blocks to get the final distance matrix. 
+	Since each data point from $N'$ is access multiple times during the calculation and in GPU, retrieving the same data from global memory is a very expensive operation, we therefore divide the $d \times N'$ matrix into size of $d  \times T$ sub-matrices and copy two of them each time(one from query points, the other from reference points) to the block-wise \textit{shared memory}. Then, we perform the distance calculations among all possible combinations in these two sub-matrices, one from query points, the other from reference points, to get the partial squared matrix of size $T \times T$. The result will be partial distances matrix between data points of size $T$ from query points and data points of size $T$ from reference points. The is repeated among all thread blocks to get the final complete distance matrix. 
 
 	\item {\textit{Kernel 3 - Local Reachability Density Estimation}}
 	
@@ -318,12 +318,123 @@ Outputs: The new binned summary with bin count $C^{n}$ and mean value vector $M^
  \item {\textit{Map stage}}
  	The Map stage focus on the calculation of the bin index. For virtual data points from the binned summary $j$, their bin indices are already calculated. All we need to do is just to emit it with the bin count and the mean value vector of this bin, given as $(j, C_j^{n-1}, M_j^{n-1})$. And for newly arrived data point $x_i$, we need to calculate their bin indices $j'$ based on equation \ref{bin_index} and emit the calculated indices with its bin count as 1 and the data point itself, given as ${(j', 1, x_i)}$
 \item {\textit{Reduce stage}}
-	The reducer has two tasks: One to calculate the bin count $C_j^n$ and the other to calculate the mean value vector $M_j^n$ for each bins. Calculation on the bin count $C_j^n$ can simply be achieved by summation over all the second emit argument from the Map stage. For calculating the mean value vector $M_j^n$, we need to first multiply the second and the third emit arguments from the map stage and sum over all the result of application of the multiply. And finally divide it by the total bin count $C_j^n$ we get previously. Then return the bin index j with the aggregated results of bin count and mean value vector, given as $(j, C_j^n, M_j^{n})$
+	The reducer has two tasks: One to calculate the bin count $C_j^n$ and the other to calculate the mean value vector $M_j^n$ for each bins. Calculation on the bin count $C_j^n$ can simply be achieved by summation over all the second emit argument from the Map stage. For calculating the mean value vector $M_j^n$, we need to first multiply the second and the third emit arguments from the map stage and sum over all the result of the application of the multiply. And finally divide it by the total bin count $C_j^n$ we get previously. Then return the bin index j with the aggregated results of bin count and mean value vector, given as $(j, C_j^n, M_j^{n})$
 \end{enumerate}
 
 Note that there is a side product in updating the binned summary process which is the upper and lower bounds for each dimension of the data. This measures span of the data points in each dimension and have a direct impact of $k$, which will decide the maximum number of bins needed($k^d$)
 
+% ############################################################################
+\section{Experiments} \label{expert}
+% ############################################################################
 
+We perform the experiments and evaluations on this project from three different aspects. In the first, we measure the memory bandwidth and latency of the CUDA kernels when calculating the LOF scores on GPU by giving different block dimensions and enabling or disabling the shared memory acess. Then, we compare the accuracy of the purposed C\_LOF algorithm with the classical \textit{sliding window} approach based on a real-world data in a streaming environment. And lastly, we want to see whether this parallel implementation of LOF scales better in terms of the number of data points and the data's dimension than the sequential version. The following section records this in details: 
+
+\subsection{Bandwidth and latency}
+
+For all GPU applications, one of the major and critical performance bound is memory bandwidth and throughput. In CUDA, this can be affected by a lot of factors such as whether the memory accesses is coalesced, whether shared memory is used, how the grids and blocks are being laid out etc. As mentioned earlier, I formulated the input matrices into dimensions of the multiple of 32 and employ a $32 \times 32$ dimension thread block in Kernel 1. In addition, I used shared memory provided in CUDA to reduce the global memory bandwidth. To see this in action, I wrote two equivalent versions of Kernel 1, one use the shared memory, the other simply read from global memory each time it needs to access data from input. I let them process one window of dataset with size of 1024 and dimension of 64, using $32 \times 32$ thread block. All the experiments of GPU was taken on a machine with \textit{NVIDIA Geforce GTX 650} graphic cards with 768 CUDA cores and 2GB of device memory.  The version of CUDA installed on the machine was $8.0$. The following table shows the profiling results of these two kernels given by nvprof:
+
+\begin{table}[ht]
+\centering
+\caption{Profiling result of Kernel 1 without shared memory}
+\begin{tabular}{|c|c|l|c|c|c|c|} 
+\hline
+Time(\%) & Time      & Calls & Avg      & Min& Max& Name                            \\ 
+\hline
+93.80\%  & 180.96ms  & 1     & 180.96ms & 180.96ms& 180.96ms& Kernel 1 (No SM)              \\ 
+\hline
+0.92\%   & 1.7739ms  & 3     & 591.30us & 43.265us& 1.6874ms& [CUDA memcpy DtoH]    \\ 
+\hline
+5.28\%   & 10.1785ms & 3     & 3.92ms   & 440.609us& 10.0890ms& [CUDA memcpy HtoD]  \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\caption{Profiling result of Kernel 1 with shared memory}
+\begin{tabular}{|c|c|l|c|c|c|c|} 
+\hline
+Time(\%) & Time     & Calls & Avg      & Min& Max& Name                                  \\ 
+\hline
+98.35\%  & 184.92ms & 1     & 184.92ms & 184.92ms& 184.92ms& Kernel 1  \\ 
+\hline
+1.02\%   & 1.9094ms & 3     & 636.47us & 43.265us& 1.8229ms& [CUDA memcpy DtoH]          \\ 
+\hline
+0.63\%   & 1.1838ms & 3     & 394.60us & 44.641us& 1.0943ms& [CUDA memcpy HtoD]          \\
+\hline
+\end{tabular}
+\end{table}
+
+\break
+
+From these tables, we can see the percentage of time spent on transferring data from host to device is significantly dropped when shared memory is used. On the other hand, the bandwidth of device to host data transfer, did not change significantly since shared memory does not have impact on that. Even though that is the case, the overall percentage of time spent on device to host data transferring time was very tiny. This is due to the fact that some of the inputs matrices to Kernel 1 were not being transferred back to host explicitly since they make no contributions to the following steps and therefore transferring them back to host would be a waste of efforts.
+
+Another performance bound in GPU programming is latency, which can be greatly affected by the block size. Ideally, we want every thread in the GPU to be as busy as possible and reduce the number of idle threads. I tried three different block sizes on Kernel 1, one with $32 \times 32$ dimension, the other $16 \times 16$ dimension and the last $8 \times 8$ dimension. They all process a same dataset of size 1024 and dimension of 64 without shared memory access. The following table shows the processing time for each of these options:
+
+\begin{table}[ht]
+\centering
+\caption{Latency of Kernel 1 with different block size}
+\begin{tabular}{|l|l|l|l|} 
+\hline
+Latency \textbackslash{} Block size & $8 \times 8$     & $16 \times 16$   & $32 \times 32$    \\ 
+\hline
+Time(\%)                            & 98.49\%  & ~98.21\% & 98.52\%   \\ 
+\hline
+Time(Avg)                           & 187.32ms & 181.25ms & 181.65ms  \\ 
+\hline
+Min                                 & 185.68ms & 178.95ms & 180.31ms  \\ 
+\hline
+Max                                 & 189.46ms & 182.64ms & 182.69ms  \\
+\hline
+\end{tabular}
+\end{table}
+
+As we can see from the table, there is a significant improvement on the latency between $8 \times 8$ thread block and $16 \times 16$ thread block but the change between $16 \times 16$ and $32 \times 32$ thread blocks was barely noticeable. There is due the the hardware limitation where only a maximum of 1024 threads are available per block in the provided NVIDIA GPU. As the number of the block size get closer to this maximum available threads per block, the change of latency will become increasingly un-observable.
+
+The following graph shows the overall timeline of all the Kernels in GPUs involved in calculating the cumulative LOF scores given one window of data. The time taken on sorting in Kernel 2 and Kernel 3 seems to take the most part of the calculations, followed by the calculation of distance matrix in Kernel 1. The computation of lrd and LOF in Kernel 4 and Kernel 5 respectively only cost a very small portion of time over the entire timeline. 
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=15cm]{Figures/timeline}
+\caption{The timeline of all the kernels in GPU}
+\label{fig:timeline}
+\end{figure}
+
+Since I used a third party library for sorting, which I do not have absolute control and implements a radix sort algorithm, it will be interesting to see if the sorting time can be improved by using other sorting algorithms in GPU such as binotic sort etc in future study.
+
+\subsection{Accuracy}
+
+In measuring of accuracy, I used the \textit{KddCup99} network intrusion detection dataset from UCI machine learning repository\footnote{http://archive.ics.uci.edu/ml/datasets.html} and compare the result of the proposed C\_LOF algorithm with the classical distanced-based algorithm over streaming data (DODDS) where no historical data is considered. The result is measured based on the \textit{F-measure}, which is a widely used method for detecting accuracy of an algorithm. The accuracy of \textit{F-measure} method is decided by F-score, which is defined as:
+
+\[ F_{score} = \frac{2 \times precision \times recall}{precision + recall}  \]
+
+where precision is defined as the number of correctly detected outliers (true positives) divided by the total number of detected outliers (true positives + false positives). Recall is defined as the number of correctly detected outliers divided by the total number of outliers in the dataset (true positives + false negatives). 
+
+The dataset has been split into 10 windows, with each comprises of 1024 data points and is fed to the application one at a time to simulate a streaming environment in a real world. F-score is calculated after all data has been exhausted. The following graph shows the result of evaluation:
+
+\includeFig{fig:f-measure}{Figures/f-measure}{Accuracy comparison between C\_LOF and DODDS}
+
+From the Bar Chart \ref{fig:f-measure}, we see that the C\_LOF algorithm performs only better in the Recall part  but left much to improve in Precision part as well as the overall F-Score. This implies that the C\_LOF generate a large number of false positive results. I think this may be highly related to the choosing of the hyper-parameter $\theta$, which decides the sensitivity of deciding being outlierness. A small number of $\theta$ would lead to new data point being classified as outlier even if its LOF score deviate little bit from the rest. Ideally, this hyper-parameter should be adjusted dynamically as more data being observed. 
+
+%A more suitable solution to this problem would be when deciding the outlier, we not only should consider the historical data along with the data from current window, but also consider the future data! This means the algorithm should not report outliers immediately after calculating its LOF scores, but rather treat it as a candidate outlier and only report it as an outlier after observing future data points of window size $n$ if it still satisfy the outlier conditions. 
+
+\subsection{Scalability}
+
+We measure the scalability of the proposed C\_LOF algorithm with respect to the number of data size $N$ and dimension of data point $D$. The result is compared with a CPU sequential implementation of LOF from Python Sklearn library\footnote{http://scikit-learn.org/stable/auto\_examples/neighbors/plot\_lof.html}. The following show the results of these comparisons.
+
+Figure \ref{fig:scalability-D} presents the average time (scaled between 0 and 1) spent on C\_LOF and LOF algorithms respectively to process a random generated dataset with respect to increasing number of attributes (up until 64) over the dataset. We fix the settings on the number of data size N to 1024 and the number of K in K nearest neighbors to 20 in order to make comparisions. 
+
+\includeFig{fig:scalability-D}{Figures/scalability-D}{Scalability of C\_LOF and LOF with respect to dimension D}
+%\includeFig{fig:C_LOF_D}{Figures/C_LOF_D}{Scalability of C\_LOF with respect to dimension D}
+%\includeFig{fig:LOF_D}{Figures/LOF_D}{Scalability of LOF with respect to dimension D}
+
+From the graph, we hardly notice any linear increase on the time spent on processing of the data with respect to the increasing of dimension in dataset in C\_LOF algorithm. This implies that we may have not yet made used of every possible resources available in GPU and there are still many rooms to further process even more higher dimension of data. On the other hand, the sequential implementation of LOF seems to scales well so far with respect to data dimension but the overall time spent on processing of data is significantly longer when data dimension become larger compared to C\_LOF. 
+
+Figure \ref{fig:scalability-N} shows how these two algorithms scale with respect to the data size N in logarithmic scale between $[0, 1]$, given a fixed setting of dimension D and KNN size K. We can see that the C\_LOF perform better compared to the sequential implementation over increasing number of data size. 
+
+\includeFig{fig:scalability-N}{Figures/scalability-N}{Scalability of C\_LOF and LOF with respect to data size N}
+
+Due to the limitation on the hardware resource in this project, I am not physically capable of processing data with dimension higher than 64, and data size higher than 1024. It will be interesting to see how the runtimes of both implementations will behave on a larger dimension of data and larger data size. 
 % ############################################################################
 \section{Conclusion} \label{concl}
 % ############################################################################
